@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
-const API_KEY = 'cd05ca4f';
+const API_KEY = import.meta.env.VITE_OMDB_API_KEY;
+const BASE_URL = "https://www.omdbapi.com/"; // Ensure HTTPS is used // Use HTTPS
+console.log(API_KEY);
 
 const App = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,29 +14,37 @@ const App = () => {
   const [genres, setGenres] = useState([]);
   const [selectedGenre, setSelectedGenre] = useState('');
   const [sortOrder, setSortOrder] = useState('');
-  const [loading, setLoading] = useState(false); // loading state
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (searchTerm) {
-      setLoading(true); // Set loading to true before the request starts
+      setLoading(true);
       axios
-        .get(`http://www.omdbapi.com/?apikey=${API_KEY}&s=${searchTerm}`)
+        .get(`${BASE_URL}?apikey=${API_KEY}&s=${searchTerm}&type=movie&page=1`)
         .then(async (response) => {
-          const movieList = response.data.Search || [];
+          if (!response.data.Search) {
+            setMovies([]);
+            setFilteredMovies([]);
+            setLoading(false);
+            return;
+          }
+          
+          const movieList = response.data.Search;
           const detailedMovies = await Promise.all(
             movieList.map(async (movie) => {
-              const details = await axios.get(`http://www.omdbapi.com/?apikey=${API_KEY}&i=${movie.imdbID}`);
+              const details = await axios.get(`${BASE_URL}?apikey=${API_KEY}&i=${movie.imdbID}&plot=full`);
               return { ...movie, Genre: details.data.Genre };
             })
           );
+          
           setMovies(detailedMovies);
           setFilteredMovies(detailedMovies);
           extractGenres(detailedMovies);
-          setLoading(false); // Set loading to false after the request finishes
+          setLoading(false);
         })
         .catch((error) => {
           console.error('Error fetching movies:', error);
-          setLoading(false); // Set loading to false in case of error
+          setLoading(false);
         });
     }
   }, [searchTerm]);
@@ -56,7 +66,7 @@ const App = () => {
   const handleSort = (order) => {
     setSortOrder(order);
     const sorted = [...filteredMovies].sort((a, b) => {
-      return order === 'asc' ? a.Year - b.Year : b.Year - a.Year;
+      return order === 'asc' ? Number(a.Year) - Number(b.Year) : Number(b.Year) - Number(a.Year);
     });
     setFilteredMovies(sorted);
   };
@@ -72,7 +82,7 @@ const App = () => {
 
   const fetchMovieDetails = (id) => {
     axios
-      .get(`http://www.omdbapi.com/?apikey=${API_KEY}&i=${id}`)
+      .get(`${BASE_URL}?apikey=${API_KEY}&i=${id}`)
       .then((response) => setSelectedMovie(response.data))
       .catch((error) => console.error('Error fetching movie details:', error));
   };
@@ -89,10 +99,10 @@ const App = () => {
             placeholder="Search for a movie..."
             className="search-box"
           />
-          <p className="search-term">Searching for: {searchTerm}</p> {/* Display the search term */}
+          <p className="search-term">Searching for: {searchTerm}</p>
 
           {loading ? (
-            <p>Loading...</p> // Display loading message while fetching
+            <p>Loading...</p>
           ) : (
             <>
               <div className="controls">
